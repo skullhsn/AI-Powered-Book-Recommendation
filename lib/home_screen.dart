@@ -25,6 +25,15 @@ class HomeScreen extends StatelessWidget {
             onPressed: () => Navigator.pushNamed(context, '/reading_list'),
           ),
           IconButton(
+            icon: Icon(Icons.chat), // Add chat icon
+            onPressed:
+                () => Navigator.pushNamed(
+                  context,
+                  '/chat',
+                ), // Navigate to chat screen
+            tooltip: 'AI Chat Assistant',
+          ),
+          IconButton(
             icon: Icon(Icons.person),
             onPressed: () => Navigator.pushNamed(context, '/user_profile'),
           ),
@@ -47,7 +56,34 @@ class HomeScreen extends StatelessWidget {
                 .collection('recommended_books')
                 .snapshots(),
         builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-          if (!snapshot.hasData) return CircularProgressIndicator();
+          if (!snapshot.hasData)
+            return Center(child: CircularProgressIndicator());
+
+          if (snapshot.data!.docs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'No book recommendations yet!',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                  SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    icon: Icon(Icons.chat),
+                    label: Text('Chat with AI Assistant'),
+                    onPressed: () => Navigator.pushNamed(context, '/chat'),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'Get personalized book recommendations',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
+          }
+
           return ListView(
             children:
                 snapshot.data!.docs.map((doc) {
@@ -65,6 +101,11 @@ class HomeScreen extends StatelessWidget {
                 }).toList(),
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.pushNamed(context, '/chat'),
+        child: Icon(Icons.chat),
+        tooltip: 'Chat with AI Assistant',
       ),
     );
   }

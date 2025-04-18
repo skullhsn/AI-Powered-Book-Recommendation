@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class DiscussionBoardScreen extends StatefulWidget {
+  const DiscussionBoardScreen({super.key});
+
   @override
   _DiscussionBoardScreenState createState() => _DiscussionBoardScreenState();
 }
@@ -26,8 +28,9 @@ class _DiscussionBoardScreenState extends State<DiscussionBoardScreen> {
                       .orderBy('timestamp', descending: true)
                       .snapshots(),
               builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                if (!snapshot.hasData)
+                if (!snapshot.hasData) {
                   return Center(child: CircularProgressIndicator());
+                }
                 return ListView(
                   children:
                       snapshot.data!.docs.map((doc) {
