@@ -17,9 +17,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // DeepSeek API configuration
   // Replace with your actual API key
+
+  final String _apiUrl = 'https://api.deepseek.com/v1/chat/completions';
   final String _apiKey =
-      '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';
-  final String _apiUrl = 'https://api.deepseek.com/v1';
+      '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'; // Replace with your DeepSeek API key
 
   // Fallback to use if DeepSeek fails (this is a mock function)
   Future<String> _getLocalResponse(String userMessage) async {
@@ -120,16 +121,32 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
 
     try {
-      // Try to get response from DeepSeek API
+      print(
+        'Sending request to: https://openrouter.ai/api/v1/chat/completions',
+      );
+      print(
+        'Headers: ${{'Content-Type': 'application/json', 'Authorization': 'Bearer $_apiKey', 'HTTP-Referer': 'YOUR_SITE_URL', 'X-Title': 'YOUR_SITE_NAME'}}',
+      );
+      print(
+        'Body: ${jsonEncode({
+          'model': 'deepseek/deepseek-chat-v3-0324:free',
+          'messages': [
+            {'role': 'system', 'content': 'You are a helpful book recommendation assistant...'},
+            {'role': 'user', 'content': userMessage},
+          ],
+          'max_tokens': 500,
+        })}',
+      );
+
       final response = await http
           .post(
-            Uri.parse(_apiUrl),
+            Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $_apiKey',
             },
             body: jsonEncode({
-              'model': 'deepseek-chat',
+              'model': 'deepseek/deepseek-chat-v3-0324:free',
               'messages': [
                 {
                   'role': 'system',
@@ -144,10 +161,12 @@ class _ChatScreenState extends State<ChatScreen> {
           .timeout(
             Duration(seconds: 10),
             onTimeout: () {
-              // If the request times out, throw an exception
               throw TimeoutException('The request timed out');
             },
           );
+
+      print('Response Status: ${response.statusCode}');
+      print('Response Body: ${response.body}');
 
       String aiResponse;
 
@@ -158,12 +177,13 @@ class _ChatScreenState extends State<ChatScreen> {
         } catch (e) {
           print('Error parsing API response: $e');
           print('Response body: ${response.body}');
-          // Fall back to local response
           aiResponse = await _getLocalResponse(userMessage);
         }
       } else {
         print('API error: ${response.statusCode} - ${response.body}');
-        // Fall back to local response
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('API error, using local response')),
+        );
         aiResponse = await _getLocalResponse(userMessage);
       }
 
@@ -180,10 +200,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _scrollToBottom();
     } catch (e) {
       print('Exception during API call: $e');
-
-      // Get a fallback response
       final fallbackResponse = await _getLocalResponse(userMessage);
-
       setState(() {
         _messages.add({
           'content': fallbackResponse,
@@ -192,7 +209,6 @@ class _ChatScreenState extends State<ChatScreen> {
         });
         _isLoading = false;
       });
-
       await _saveChatMessage(fallbackResponse, false);
       _scrollToBottom();
     }
