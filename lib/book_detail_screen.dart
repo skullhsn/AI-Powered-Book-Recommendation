@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class BookDetailScreen extends StatelessWidget {
+  const BookDetailScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     final book = ModalRoute.of(context)!.settings.arguments as Map;
