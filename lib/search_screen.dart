@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'api_service.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -12,15 +11,26 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final _searchController = TextEditingController();
   List<dynamic> _books = [];
+  bool _isLoading = false;
 
   Future<void> _searchBooks(String query) async {
-    final url = 'https://www.googleapis.com/books/v1/volumes?q=$query';
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
+    if (query.isEmpty) return;
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final books = await ApiService.searchBooks(query);
       setState(() {
-        _books = data['items'] ?? [];
+        _books = books;
+        _isLoading = false;
       });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -43,6 +53,11 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
           ),
+          if (_isLoading)
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: CircularProgressIndicator(),
+            ),
           Expanded(
             child: ListView.builder(
               itemCount: _books.length,
