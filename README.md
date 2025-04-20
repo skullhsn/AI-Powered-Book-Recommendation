@@ -4,6 +4,7 @@ AI Powered Book Recommendation App
 
 To run:
 
+flutter pub get
 
 npm i -g firebase-tools
 
