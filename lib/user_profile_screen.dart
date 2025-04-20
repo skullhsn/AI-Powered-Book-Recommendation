@@ -12,6 +12,7 @@ class UserProfileScreen extends StatefulWidget {
 class _UserProfileScreenState extends State<UserProfileScreen> {
   final _genresController = TextEditingController();
   List<String> _selectedGenres = [];
+  String _userEmail = '';
 
   @override
   void initState() {
@@ -21,13 +22,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Future<void> _loadProfile() async {
     final user = FirebaseAuth.instance.currentUser;
-    final doc =
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user!.uid)
-            .get();
-    if (doc.exists) {
+    if (user != null) {
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
       setState(() {
+        _userEmail = user.email ?? '';
         _selectedGenres = List<String>.from(doc['genres'] ?? []);
         _genresController.text = _selectedGenres.join(', ');
       });
@@ -39,6 +41,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
       'genres': _selectedGenres,
     }, SetOptions(merge: true));
+
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('Profile updated!')));
@@ -47,33 +50,95 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('User Profile')),
-      body: Padding(
-        padding: EdgeInsets.all(16.0),
+      appBar: AppBar(
+        title: Text(
+          'User Profile',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Preferred Genres', style: TextStyle(fontSize: 18)),
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListTile(
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+                leading: CircleAvatar(
+                  radius: 26,
+                  child: Icon(Icons.person, size: 28),
+                ),
+                title: Text(
+                  'Logged in as',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+                subtitle: Text(
+                  _userEmail,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            SizedBox(height: 30),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Preferred Genres',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+            ),
+            SizedBox(height: 10),
             TextField(
               controller: _genresController,
               decoration: InputDecoration(
                 hintText: 'Enter genres (comma-separated)',
+                filled: true,
+                fillColor: Theme.of(context).cardColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               onChanged: (value) {
                 _selectedGenres =
                     value.split(',').map((e) => e.trim()).toList();
               },
             ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _saveProfile,
-              child: Text('Save Profile'),
+            SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _saveProfile,
+                icon: Icon(Icons.save),
+                label: Text('Save Profile'),
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
             ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/settings');
-              },
-              child: Text('Go to Settings'),
+            SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/settings');
+                },
+                icon: Icon(Icons.settings),
+                label: Text('Go to Settings'),
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
