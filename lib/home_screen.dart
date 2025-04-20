@@ -174,142 +174,212 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Handle unauthenticated state
       return Scaffold(
         body: Center(child: Text('Please log in to see recommendations.')),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Recommended Books'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search),
-            onPressed: () => Navigator.pushNamed(context, '/search'),
-            tooltip: 'Search books',
-          ),
-          IconButton(
-            icon: Icon(Icons.list),
-            onPressed: () => Navigator.pushNamed(context, '/reading_list'),
-            tooltip: 'Reading list',
-          ),
-          IconButton(
-            icon: Icon(Icons.person),
-            onPressed: () => Navigator.pushNamed(context, '/user_profile'),
-            tooltip: 'User profile',
-          ),
-          IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: () => Navigator.pushNamed(context, '/settings'),
-            tooltip: 'Settings',
-          ),
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _fetchRecommendations,
-            tooltip: 'Refresh recommendations',
-          ),
-          IconButton(
-            icon: Icon(Icons.question_answer),
-            onPressed: _navigateToChat,
-            tooltip: 'Ask about books',
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          _isLoadingRecommendations
-              ? Center(child: CircularProgressIndicator())
-              : StreamBuilder(
-                stream:
-                    FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(user.uid)
-                        .collection('recommended_books')
-                        .orderBy('timestamp', descending: true)
-                        .snapshots(),
-                builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    print(
-                      'StreamBuilder error: ${snapshot.error}',
-                    ); // Debug log
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text('No recommendations yet.'),
-                          SizedBox(height: 10),
-                          ElevatedButton(
-                            onPressed: _fetchRecommendations,
-                            child: Text('Load Recommendations'),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header Row
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 6,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'AI Book Recommendations',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
                           ),
-                          SizedBox(height: 10),
-                          ElevatedButton(
-                            onPressed: _navigateToChat,
-                            child: Text('Chat for Recommendations'),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                  return ListView.builder(
-                    itemCount: snapshot.data!.docs.length,
-                    itemBuilder: (context, index) {
-                      final doc = snapshot.data!.docs[index];
-                      final bookData = doc.data() as Map<String, dynamic>;
-                      return ListTile(
-                        leading:
-                            bookData['imageLinks'] != null &&
-                                    bookData['imageLinks']['thumbnail'] != null
-                                ? Image.network(
-                                  bookData['imageLinks']['thumbnail'],
-                                  width: 50,
-                                  errorBuilder:
-                                      (ctx, obj, stk) =>
-                                          Icon(Icons.book, size: 50),
-                                )
-                                : Icon(Icons.book, size: 50),
-                        title: Text(bookData['title'] ?? 'Unknown'),
-                        subtitle: Text(
-                          bookData['authors']?.join(', ') ?? 'Unknown',
                         ),
-                        onTap: () {
-                          print(
-                            'Navigating to book_detail with book: $bookData',
-                          ); // Debug log
-                          Navigator.pushNamed(
-                            context,
-                            '/book_detail',
-                            arguments: {
-                              'id': bookData['id'],
-                              'title': bookData['title'],
-                              'authors': bookData['authors'],
-                              'imageLinks': bookData['imageLinks'],
-                              'description': bookData['description'],
-                              'volumeInfo': bookData['volumeInfo'],
+                        SizedBox(height: 4),
+                        Text(
+                          'Just For You',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    GestureDetector(
+                      onTap: _fetchRecommendations,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.deepPurpleAccent,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.deepPurpleAccent.withOpacity(0.4),
+                              blurRadius: 6,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        padding: EdgeInsets.all(10),
+                        child: Icon(
+                          Icons.refresh,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Body content
+            Expanded(
+              child:
+                  _isLoadingRecommendations
+                      ? Center(child: CircularProgressIndicator())
+                      : StreamBuilder(
+                        stream:
+                            FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(user.uid)
+                                .collection('recommended_books')
+                                .orderBy('timestamp', descending: true)
+                                .snapshots(),
+                        builder: (
+                          context,
+                          AsyncSnapshot<QuerySnapshot> snapshot,
+                        ) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return Center(child: CircularProgressIndicator());
+                          }
+                          if (snapshot.hasError) {
+                            return Center(
+                              child: Text('Error: ${snapshot.error}'),
+                            );
+                          }
+                          if (!snapshot.hasData ||
+                              snapshot.data!.docs.isEmpty) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text('No recommendations yet.'),
+                                  SizedBox(height: 10),
+                                  ElevatedButton(
+                                    onPressed: _fetchRecommendations,
+                                    child: Text('Load Recommendations'),
+                                  ),
+                                  SizedBox(height: 10),
+                                  ElevatedButton(
+                                    onPressed: _navigateToChat,
+                                    child: Text('Chat for Recommendations'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          return ListView.builder(
+                            itemCount: snapshot.data!.docs.length,
+                            itemBuilder: (context, index) {
+                              final doc = snapshot.data!.docs[index];
+                              final bookData =
+                                  doc.data() as Map<String, dynamic>;
+                              return ListTile(
+                                leading:
+                                    bookData['imageLinks'] != null &&
+                                            bookData['imageLinks']['thumbnail'] !=
+                                                null
+                                        ? Image.network(
+                                          bookData['imageLinks']['thumbnail'],
+                                          width: 50,
+                                          errorBuilder:
+                                              (ctx, obj, stk) =>
+                                                  Icon(Icons.book, size: 50),
+                                        )
+                                        : Icon(Icons.book, size: 50),
+                                title: Text(bookData['title'] ?? 'Unknown'),
+                                subtitle: Text(
+                                  bookData['authors']?.join(', ') ?? 'Unknown',
+                                ),
+                                onTap: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/book_detail',
+                                    arguments: {
+                                      'id': bookData['id'],
+                                      'title': bookData['title'],
+                                      'authors': bookData['authors'],
+                                      'imageLinks': bookData['imageLinks'],
+                                      'description': bookData['description'],
+                                      'volumeInfo': bookData['volumeInfo'],
+                                    },
+                                  );
+                                },
+                              );
                             },
                           );
                         },
-                      );
-                    },
-                  );
-                },
-              ),
-          // Chat button (floating action button)
-          Positioned(
-            right: 16.0,
-            bottom: 16.0,
-            child: FloatingActionButton(
-              child: Icon(Icons.chat),
-              tooltip: 'Chat for book recommendations',
-              onPressed: _navigateToChat,
+                      ),
             ),
+          ],
+        ),
+      ),
+
+      // Bottom Navigation Bar
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: Theme.of(context).primaryColor,
+        unselectedItemColor: Colors.grey,
+        showSelectedLabels: true,
+        showUnselectedLabels: false,
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              Navigator.pushNamed(context, '/search');
+              break;
+            case 1:
+              Navigator.pushNamed(context, '/user_profile');
+              break;
+            case 2:
+              Navigator.pushNamed(context, '/settings');
+              break;
+            case 3:
+              _navigateToChat();
+              break;
+          }
+        },
+        items: [
+          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline),
+            label: 'Chat',
           ),
         ],
       ),
