@@ -16,17 +16,15 @@ class _ChatScreenState extends State<ChatScreen> {
     {
       'sender': 'Bot',
       'message':
-          'Hi! Ask me about books (e.g., "About Harry Potter") or type "recommend [genre]" for suggestions!',
+          'Hi! Ask me about books or type "recommend [genre]" for suggestions!',
     },
-  ]; // Initialize with welcome message
-  final Map<String, int> _genrePageIndex = {}; // Track page index for genres
-  final Map<String, Set<String>> _recommendedBookIds =
-      {}; // Track recommended book IDs
+  ];
+  final Map<String, int> _genrePageIndex = {};
+  final Map<String, Set<String>> _recommendedBookIds = {};
 
   @override
   void initState() {
     super.initState();
-    // Scroll to bottom when new messages are added
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
     });
@@ -50,44 +48,36 @@ class _ChatScreenState extends State<ChatScreen> {
       _chatMessages.add({'sender': 'You', 'message': message});
     });
 
-    // Scroll to bottom after adding user message
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
     });
 
-    // Handle recommendation request
     if (message.toLowerCase().contains('recommend')) {
       setState(() {
         _isLoadingRecommendations = true;
       });
+
       try {
-        final query = message.toLowerCase().replaceAll('recommend', '').trim();
-        final genre = query.isEmpty ? 'fiction' : query;
+        final genre =
+            message.toLowerCase().replaceAll('recommend', '').trim().isEmpty
+                ? 'fiction'
+                : message.toLowerCase().replaceAll('recommend', '').trim();
 
-        // Initialize or increment page index for the genre
-        _genrePageIndex[genre] =
-            (_genrePageIndex[genre] ?? 0) + 10; // Increment by 10 for next page
-        final startIndex =
-            _genrePageIndex[genre]! -
-            10; // Use previous page for current request
-
-        // Initialize book ID set for the genre
+        _genrePageIndex[genre] = (_genrePageIndex[genre] ?? 0) + 10;
+        final startIndex = _genrePageIndex[genre]! - 10;
         _recommendedBookIds[genre] ??= {};
 
-        // Fetch books with pagination
         final books = await ApiService.searchBooks(
           genre,
           startIndex: startIndex,
         );
 
-        // Filter out previously recommended books
         final newBooks =
             books.where((book) {
               final bookId = book['id'] as String;
               return !_recommendedBookIds[genre]!.contains(bookId);
             }).toList();
 
-        // Update recommended book IDs
         newBooks.take(10).forEach((book) {
           _recommendedBookIds[genre]!.add(book['id'] as String);
         });
@@ -99,35 +89,30 @@ class _ChatScreenState extends State<ChatScreen> {
             _chatMessages.add({
               'sender': 'Bot',
               'message':
-                  'No new books found for "$genre". Try a different genre or clear the chat!',
+                  'No new books found for "$genre". Try a different genre!',
             });
           }
         });
       } catch (e) {
         setState(() {
-          _chatMessages.add({
-            'sender': 'Bot',
-            'message': 'Error fetching recommendations: $e',
-          });
+          _chatMessages.add({'sender': 'Bot', 'message': 'Error: $e'});
           _isLoadingRecommendations = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching recommendations: $e')),
+          SnackBar(content: Text('Error fetching recommendations')),
         );
       }
     } else {
-      // Handle chatbot query
       setState(() {
         _isLoadingChatResponse = true;
       });
+
       try {
         String response;
         String searchQuery;
-
-        // Simple query parsing
         final query = message.toLowerCase().trim();
+
         if (query.startsWith('about ') || query.contains('tell me about ')) {
-          // Query for a specific book
           searchQuery = query
               .replaceFirst('about ', '')
               .replaceFirst('tell me about ', '');
@@ -138,10 +123,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 'Here’s what I found about "${book['title']}":\n- Author(s): ${book['authors']?.join(', ') ?? 'Unknown'}\n- Description: ${book['description']?.substring(0, 100) ?? 'No description'}...';
           } else {
             response =
-                'Sorry, I couldn’t find any books matching "$searchQuery". Try another title!';
+                'No books found for "$searchQuery". Try a different title!';
           }
         } else if (query.contains('by ') || query.contains('books by ')) {
-          // Query for books by an author
           searchQuery = query
               .replaceFirst('books by ', '')
               .replaceFirst('by ', '');
@@ -153,11 +137,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 .join(', ');
             response = 'Books by $searchQuery include: $bookTitles.';
           } else {
-            response =
-                'Sorry, I couldn’t find any books by "$searchQuery". Try another author!';
+            response = 'No books found by "$searchQuery". Try another author!';
           }
         } else {
-          // General search (assume genre or keyword)
           searchQuery = query;
           final books = await ApiService.searchBooks(searchQuery);
           if (books.isNotEmpty) {
@@ -165,11 +147,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 .take(3)
                 .map((b) => b['volumeInfo']['title'])
                 .join(', ');
-            response =
-                'I found these books related to "$searchQuery": $bookTitles.';
+            response = 'Books related to "$searchQuery": $bookTitles.';
           } else {
-            response =
-                'Sorry, I couldn’t find any books related to "$searchQuery". Try another query!';
+            response = 'No results for "$searchQuery". Try a different query!';
           }
         }
 
@@ -182,14 +162,13 @@ class _ChatScreenState extends State<ChatScreen> {
           _chatMessages.add({'sender': 'Bot', 'message': 'Error: $e'});
           _isLoadingChatResponse = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching chatbot response: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error fetching response')));
       }
     }
 
     _messageController.clear();
-    // Scroll to bottom after adding bot response
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
     });
@@ -199,14 +178,116 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _chatMessages.clear();
       _recommendedBooks.clear();
-      _genrePageIndex.clear(); // Reset page indices
-      _recommendedBookIds.clear(); // Reset book ID cache
+      _genrePageIndex.clear();
+      _recommendedBookIds.clear();
       _chatMessages.add({
         'sender': 'Bot',
         'message':
-            'Hi! Ask me about books (e.g., "About Harry Potter") or type "recommend [genre]" for suggestions!',
+            'Hi! Ask me about books or type "recommend [genre]" for suggestions!',
       });
     });
+  }
+
+  Widget _buildMessageBubble(Map<String, String> message) {
+    final isBot = message['sender'] == 'Bot';
+    return Align(
+      alignment: isBot ? Alignment.centerLeft : Alignment.centerRight,
+      child: Container(
+        margin: EdgeInsets.symmetric(vertical: 6),
+        padding: EdgeInsets.all(14),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors:
+                isBot
+                    ? [Colors.blue.shade100, Colors.blue.shade50]
+                    : [Colors.blueAccent.shade200, Colors.blue.shade300],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(message['message']!, style: TextStyle(fontSize: 16)),
+      ),
+    );
+  }
+
+  Widget _buildBookCard(dynamic bookInfo) {
+    final book = bookInfo['volumeInfo'];
+    return Container(
+      width: 140,
+      margin: EdgeInsets.only(right: 12),
+      child: Card(
+        elevation: 6,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                child:
+                    book['imageLinks'] != null
+                        ? Image.network(
+                          book['imageLinks']['thumbnail'],
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        )
+                        : Container(
+                          color: Colors.grey[300],
+                          child: Icon(Icons.book, size: 48),
+                        ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    book['title'] ?? 'No title',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    book['authors']?.join(', ') ?? 'Unknown',
+                    style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: 6),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushNamed(
+                        context,
+                        '/book_detail',
+                        arguments: book,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      textStyle: TextStyle(fontSize: 11),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text('Details'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -214,18 +295,20 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        title: Text('AI Book Chatbot'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.delete),
-            tooltip: 'Clear Chat',
-            onPressed: _clearChat,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.indigoAccent, Colors.blue],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
           ),
-        ],
+        ),
+        title: Text('AI Book Chatbot'),
+        actions: [IconButton(icon: Icon(Icons.refresh), onPressed: _clearChat)],
       ),
       body: Column(
         children: [
-          // Recommendations
           if (_isLoadingRecommendations)
             Padding(
               padding: EdgeInsets.all(16.0),
@@ -233,132 +316,32 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           if (_recommendedBooks.isNotEmpty && !_isLoadingRecommendations)
             Container(
-              height: 200,
-              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              height: 220,
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: _recommendedBooks.length,
-                itemBuilder: (context, index) {
-                  final book = _recommendedBooks[index]['volumeInfo'];
-                  return Container(
-                    width:
-                        MediaQuery.of(context).size.width *
-                        0.25, // Smaller responsive width
-                    margin: EdgeInsets.only(right: 8.0),
-                    child: Card(
-                      elevation: 4,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.vertical(
-                                top: Radius.circular(12),
-                              ),
-                              child:
-                                  book['imageLinks'] != null &&
-                                          book['imageLinks']['thumbnail'] !=
-                                              null
-                                      ? Image.network(
-                                        book['imageLinks']['thumbnail'],
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) =>
-                                                Center(
-                                                  child: Icon(
-                                                    Icons.book,
-                                                    size: 50,
-                                                  ),
-                                                ),
-                                      )
-                                      : Center(
-                                        child: Icon(Icons.book, size: 50),
-                                      ),
-                            ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.all(8.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  book['title'] ?? 'No title',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  book['authors']?.join(', ') ?? 'Unknown',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    color: Colors.grey,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                SizedBox(height: 8),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      padding: EdgeInsets.symmetric(
-                                        vertical: 6,
-                                      ),
-                                      textStyle: TextStyle(fontSize: 10),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    onPressed: () {
-                                      print(
-                                        'Details button pressed for: ${book['title']}',
-                                      );
-                                      Navigator.pushNamed(
-                                        context,
-                                        '/book_detail',
-                                        arguments: book,
-                                      );
-                                    },
-                                    child: Text('Details'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                itemBuilder:
+                    (context, index) =>
+                        _buildBookCard(_recommendedBooks[index]),
               ),
             ),
-          // Chat messages
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
-              padding: EdgeInsets.all(16.0),
+              padding: EdgeInsets.all(16),
               reverse: true,
               itemCount:
                   _chatMessages.length + (_isLoadingChatResponse ? 1 : 0),
               itemBuilder: (context, index) {
-                // Handle loading indicator
                 if (_isLoadingChatResponse && index == 0) {
                   return Align(
                     alignment: Alignment.centerLeft,
                     child: Container(
-                      margin: EdgeInsets.symmetric(vertical: 4),
                       padding: EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -371,44 +354,16 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   );
                 }
-                // Handle chatbot messages
                 final message = _chatMessages[_chatMessages.length - 1 - index];
-                final isBot = message['sender'] == 'Bot';
-                return Align(
-                  alignment:
-                      isBot ? Alignment.centerLeft : Alignment.centerRight,
-                  child: Container(
-                    margin: EdgeInsets.symmetric(vertical: 4),
-                    padding: EdgeInsets.all(12),
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.75,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isBot ? Colors.blue[50] : Colors.blue[200],
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 4,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      message['message']!,
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                );
+                return _buildMessageBubble(message);
               },
             ),
           ),
-          // Input field
           Container(
-            padding: EdgeInsets.all(16.0),
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 24),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey[200]!)),
+              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
             ),
             child: Row(
               children: [
@@ -416,7 +371,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: TextField(
                     controller: _messageController,
                     decoration: InputDecoration(
-                      hintText: 'Ask about a book or type "recommend [genre]"',
+                      hintText: 'Type message...',
                       filled: true,
                       fillColor: Colors.grey[100],
                       border: OutlineInputBorder(
@@ -425,7 +380,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                       contentPadding: EdgeInsets.symmetric(
                         horizontal: 20,
-                        vertical: 12,
+                        vertical: 14,
                       ),
                     ),
                     onSubmitted: (_) => _sendMessage(),
@@ -433,7 +388,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 SizedBox(width: 8),
                 CircleAvatar(
-                  backgroundColor: Colors.blue,
+                  backgroundColor: Colors.blueAccent,
                   child: IconButton(
                     icon: Icon(Icons.send, color: Colors.white),
                     onPressed: _sendMessage,
