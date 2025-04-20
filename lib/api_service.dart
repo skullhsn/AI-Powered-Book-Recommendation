@@ -9,21 +9,24 @@ class ApiService {
   static Future<List<dynamic>> searchBooks(
     String query, {
     int startIndex = 0,
+    int maxResults = 20, // Align with home_screen.dart
   }) async {
     if (_apiKey == null) {
       throw Exception('Google Books API key not found in .env file');
     }
     final url =
-        '$_baseUrl?q=${Uri.encodeQueryComponent(query)}&key=$_apiKey&startIndex=$startIndex&maxResults=10';
+        '$_baseUrl?q=${Uri.encodeQueryComponent(query)}&key=$_apiKey&startIndex=$startIndex&maxResults=$maxResults';
     try {
-      final response = await http.get(Uri.parse(url));
       print('API Request URL: $url'); // Debug log
+      final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        final items = data['items'] as List<dynamic>? ?? [];
+        print('API Response: ${items.length} books returned'); // Debug log
         print(
-          'API Response: ${data.toString().substring(0, 100)}...',
+          'First item: ${items.isNotEmpty ? items[0] : 'none'}',
         ); // Debug log
-        return data['items'] ?? [];
+        return items;
       } else {
         throw Exception(
           'Failed to fetch books: ${response.statusCode} - ${response.body}',

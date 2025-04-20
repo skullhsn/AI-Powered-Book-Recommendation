@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'api_service.dart';
-import 'chat_screen.dart'; // Import the new chat screen
+import 'package:ai_book/api_service.dart';
+import 'dart:math'; // For randomization
+import 'chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -11,6 +12,42 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _isLoadingRecommendations = false;
+
+  // Map user-friendly genres to Google Books API subjects
+  static const Map<String, String> _genreToSubject = {
+    'action': 'action adventure',
+    'fiction': 'fiction',
+    'sci-fi': 'science fiction',
+    'fantasy': 'fantasy',
+    'mystery': 'mystery',
+    'romance': 'romance',
+    'thriller': 'thriller',
+    'horror': 'horror',
+    'biography': 'biography',
+    'history': 'history',
+  };
+
+  // Fallback book list for API failures
+  static const List<Map<String, dynamic>> _fallbackBooks = [
+    {
+      'id': 'fallback_1',
+      'volumeInfo': {
+        'title': 'Fallback Action Book 1',
+        'authors': ['Unknown Author'],
+        'description': 'A placeholder action adventure book.',
+        'imageLinks': {'thumbnail': 'https://via.placeholder.com/150'},
+      },
+    },
+    {
+      'id': 'fallback_2',
+      'volumeInfo': {
+        'title': 'Fallback Action Book 2',
+        'authors': ['Unknown Author'],
+        'description': 'Another placeholder action book.',
+        'imageLinks': {'thumbnail': 'https://via.placeholder.com/150'},
+      },
+    },
+  ];
 
   @override
   void initState() {
@@ -35,13 +72,41 @@ class _HomeScreenState extends State<HomeScreen> {
               .collection('users')
               .doc(user.uid)
               .get();
-      final genres = List<String>.from(
-        userDoc.data()?['genres'] ?? ['fiction'],
-      );
+      final genres = List<String>.from(userDoc.data()?['genres'] ?? []);
+      print('Fetched genres: $genres'); // Debug log
 
-      // Use the first genre or default to 'fiction' for the API query
-      final query = genres.isNotEmpty ? genres[0] : 'fiction';
-      final books = await ApiService.searchBooks(query);
+      // Use the first genre or default to 'fiction'
+      final genre = genres.isNotEmpty ? genres[0].toLowerCase() : 'fiction';
+      final apiQuery = _genreToSubject[genre] ?? genre;
+      print('Using API query: subject:$apiQuery'); // Debug log
+
+      // Fetch books for the genre
+      List<dynamic> books;
+      try {
+        books = await ApiService.searchBooks(
+          'subject:$apiQuery',
+          maxResults: 20, // Fetch 20 for randomization variety
+        );
+        print('Fetched ${books.length} books: $books'); // Debug log
+      } catch (e) {
+        print('API call failed: $e'); // Debug log
+        books = _fallbackBooks; // Use fallback books
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Using fallback books due to API error')),
+        );
+      }
+
+      if (books.isEmpty) {
+        throw Exception('No books found for genre: $genre');
+      }
+
+      // Randomly select up to 10 books (or fewer if less available)
+      final random = Random();
+      final maxBooks = books.length < 10 ? books.length : 10; // Increased to 10
+      final selectedBooks = (books..shuffle(random)).take(maxBooks).toList();
+      print(
+        'Selected $maxBooks books for storage: $selectedBooks',
+      ); // Debug log
 
       // Clear existing recommendations
       await FirebaseFirestore.instance
@@ -55,21 +120,33 @@ class _HomeScreenState extends State<HomeScreen> {
             }
           });
 
-      // Add new recommendations to Firestore
-      for (var book in books.take(5)) {
-        final volumeInfo = book['volumeInfo'];
+      // Add new recommendations to Firestore with full data
+      for (var book in selectedBooks) {
+        final volumeInfo = book['volumeInfo'] ?? {};
+        final bookId =
+            book['id']?.toString() ??
+            volumeInfo['id']?.toString() ??
+            'unknown_${volumeInfo['title']?.hashCode ?? random.nextInt(10000)}';
         await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .collection('recommended_books')
             .add({
+              'id': bookId,
               'title': volumeInfo['title'] ?? 'Unknown',
-              'author': volumeInfo['authors']?.join(', ') ?? 'Unknown',
+              'authors': volumeInfo['authors'] ?? ['Unknown Author'],
               'imageLinks': volumeInfo['imageLinks'] ?? {},
+              'description':
+                  volumeInfo['description'] ?? 'No description available',
+              'volumeInfo': volumeInfo, // Store full volumeInfo for navigation
               'timestamp': FieldValue.serverTimestamp(),
             });
+        print(
+          'Stored book: id=$bookId, title=${volumeInfo['title']}',
+        ); // Debug log
       }
     } catch (e) {
+      print('Error fetching recommendations: $e'); // Debug log
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load recommendations: $e')),
       );
@@ -156,7 +233,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     return Center(child: CircularProgressIndicator());
                   }
                   if (snapshot.hasError) {
-                    print('StreamBuilder error: ${snapshot.error}');
+                    print(
+                      'StreamBuilder error: ${snapshot.error}',
+                    ); // Debug log
                     return Center(child: Text('Error: ${snapshot.error}'));
                   }
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -183,25 +262,38 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemCount: snapshot.data!.docs.length,
                     itemBuilder: (context, index) {
                       final doc = snapshot.data!.docs[index];
+                      final bookData = doc.data() as Map<String, dynamic>;
                       return ListTile(
                         leading:
-                            doc['imageLinks'] != null &&
-                                    doc['imageLinks']['thumbnail'] != null
+                            bookData['imageLinks'] != null &&
+                                    bookData['imageLinks']['thumbnail'] != null
                                 ? Image.network(
-                                  doc['imageLinks']['thumbnail'],
+                                  bookData['imageLinks']['thumbnail'],
                                   width: 50,
                                   errorBuilder:
                                       (ctx, obj, stk) =>
                                           Icon(Icons.book, size: 50),
                                 )
                                 : Icon(Icons.book, size: 50),
-                        title: Text(doc['title'] ?? 'Unknown'),
-                        subtitle: Text(doc['author'] ?? 'Unknown'),
+                        title: Text(bookData['title'] ?? 'Unknown'),
+                        subtitle: Text(
+                          bookData['authors']?.join(', ') ?? 'Unknown',
+                        ),
                         onTap: () {
+                          print(
+                            'Navigating to book_detail with book: $bookData',
+                          ); // Debug log
                           Navigator.pushNamed(
                             context,
                             '/book_detail',
-                            arguments: doc.data(),
+                            arguments: {
+                              'id': bookData['id'],
+                              'title': bookData['title'],
+                              'authors': bookData['authors'],
+                              'imageLinks': bookData['imageLinks'],
+                              'description': bookData['description'],
+                              'volumeInfo': bookData['volumeInfo'],
+                            },
                           );
                         },
                       );
