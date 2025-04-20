@@ -368,6 +368,9 @@ class _HomeScreenState extends State<HomeScreen> {
             case 3:
               _navigateToChat();
               break;
+            case 4:
+              Navigator.pushNamed(context, '/discussion_board');
+              break;
           }
         },
         items: [
@@ -381,6 +384,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.chat_bubble_outline),
             label: 'Chat',
           ),
+          BottomNavigationBarItem(icon: Icon(Icons.forum), label: 'Discussion'),
         ],
       ),
     );

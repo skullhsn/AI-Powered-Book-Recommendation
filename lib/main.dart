@@ -18,6 +18,7 @@ import 'chat_screen.dart';
 import 'user_profile_screen.dart';
 import 'settings_screen.dart';
 import 'chat_screen.dart'; // Import the new chat screen
+import 'package:ai_book/discussion_board_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +57,7 @@ class BookRecommendationApp extends StatelessWidget {
               '/user_profile': (context) => UserProfileScreen(),
               '/settings': (context) => SettingsScreen(),
               '/chat': (context) => ChatScreen(), // Add the new route
+              '/discussion_board': (context) => DiscussionBoardScreen(),
             },
           );
         },
