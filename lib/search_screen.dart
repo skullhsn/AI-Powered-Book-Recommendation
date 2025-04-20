@@ -37,49 +37,105 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Search Books')),
-      body: Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                labelText: 'Search by title, author, or genre',
-                suffixIcon: IconButton(
-                  icon: Icon(Icons.search),
-                  onPressed: () => _searchBooks(_searchController.text),
-                ),
+      appBar: AppBar(
+        title: Text(
+          'Search Books',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search by title, author, or genre',
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.search,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                    onPressed: () => _searchBooks(_searchController.text),
+                  ),
+                ],
               ),
             ),
-          ),
-          if (_isLoading)
-            Padding(
-              padding: EdgeInsets.all(8.0),
-              child: CircularProgressIndicator(),
-            ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _books.length,
-              itemBuilder: (context, index) {
-                final book = _books[index]['volumeInfo'];
-                return ListTile(
-                  title: Text(book['title'] ?? 'No title'),
-                  subtitle: Text(
-                    book['authors']?.join(', ') ?? 'Unknown author',
-                  ),
-                  onTap: () {
-                    Navigator.pushNamed(
-                      context,
-                      '/book_detail',
-                      arguments: book,
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
+            SizedBox(height: 16),
+            if (_isLoading) Center(child: CircularProgressIndicator()),
+            if (!_isLoading)
+              Expanded(
+                child:
+                    _books.isEmpty
+                        ? Center(
+                          child: Text(
+                            'No results',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        )
+                        : ListView.separated(
+                          itemCount: _books.length,
+                          separatorBuilder: (_, __) => SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final book = _books[index]['volumeInfo'];
+                            return InkWell(
+                              onTap: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/book_detail',
+                                  arguments: book,
+                                );
+                              },
+                              child: Card(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 3,
+                                child: Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        book['title'] ?? 'No title',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      SizedBox(height: 6),
+                                      Text(
+                                        book['authors']?.join(', ') ??
+                                            'Unknown author',
+                                        style: TextStyle(
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+              ),
+          ],
+        ),
       ),
     );
   }
